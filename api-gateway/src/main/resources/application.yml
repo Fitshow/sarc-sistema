@@ -1,0 +1,56 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  config:
+    import: optional:configserver:http://localhost:8888
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8090/realms/sarc
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+        - id: resource-service
+          uri: lb://resource-service
+          predicates:
+            - Path=/api/resources/**
+        - id: allocation-service
+          uri: lb://allocation-service
+          predicates:
+            - Path=/api/allocations/**
+        - id: schedule-service
+          uri: lb://schedule-service
+          predicates:
+            - Path=/api/schedules/**
+        - id: public-schedule-alias
+          uri: lb://schedule-service
+          predicates:
+            - Path=/api/public/**
+          filters:
+            - 'RewritePath=/api/public/(?<segment>.*), /api/$\{segment}'
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 1.0

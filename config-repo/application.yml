@@ -1,0 +1,16 @@
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  otlp:
+    tracing:
+      endpoint: http://otel-collector:4318/v1/traces
+  tracing:
+    sampling:
+      probability: 1.0

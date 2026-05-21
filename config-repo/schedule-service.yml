@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: schedule-service
+  datasource:
+    url: jdbc:postgresql://postgres:5432/sarc
+    username: sarc
+    password: sarc
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8090/realms/sarc
+          jwk-set-uri: http://keycloak:8080/realms/sarc/protocol/openid-connect/certs
+
+server:
+  port: 8085

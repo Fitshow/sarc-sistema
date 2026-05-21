@@ -1,0 +1,3 @@
+# O docker-compose principal fica na raiz do projeto.
+# Execute a partir da raiz:
+# docker compose up --build

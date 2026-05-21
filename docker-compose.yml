@@ -1,0 +1,189 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sarc-postgres
+    environment:
+      POSTGRES_USER: sarc
+      POSTGRES_PASSWORD: sarc
+      POSTGRES_DB: sarc
+    ports:
+      - "5432:5432"
+    volumes:
+      - sarc-postgres-data:/var/lib/postgresql/data
+      - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sarc -d sarc"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: sarc-keycloak
+    command: start-dev --import-realm --hostname=http://localhost:8090
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+    ports:
+      - "8090:8080"
+    volumes:
+      - ./docker/keycloak/realm-sarc.json:/opt/keycloak/data/import/realm-sarc.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  discovery-server:
+    build:
+      context: .
+      dockerfile: discovery-server/Dockerfile
+    container_name: sarc-discovery-server
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
+  config-server:
+    build:
+      context: .
+      dockerfile: config-server/Dockerfile
+    container_name: sarc-config-server
+    ports:
+      - "8888:8888"
+    environment:
+      SPRING_PROFILES_ACTIVE: native,docker
+      SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS: file:/app/config-repo
+    volumes:
+      - ./config-repo:/app/config-repo:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8888'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      discovery-server:
+        condition: service_started
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: sarc-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    depends_on:
+      config-server:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+
+  user-service:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    container_name: sarc-user-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+
+  resource-service:
+    build:
+      context: .
+      dockerfile: resource-service/Dockerfile
+    container_name: sarc-resource-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+
+  allocation-service:
+    build:
+      context: .
+      dockerfile: allocation-service/Dockerfile
+    container_name: sarc-allocation-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+
+  schedule-service:
+    build:
+      context: .
+      dockerfile: schedule-service/Dockerfile
+    container_name: sarc-schedule-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+    depends_on:
+      postgres:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./sarc-web
+      dockerfile: Dockerfile
+    container_name: sarc-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: sarc-otel-collector
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./docker/otel-collector.yml:/etc/otelcol/config.yml:ro
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+
+  # SonarQube opcional:
+  # sonarqube:
+  #   image: sonarqube:10-community
+  #   container_name: sarc-sonarqube
+  #   profiles:
+  #     - sonar
+  #   ports:
+  #     - "9000:9000"
+
+volumes:
+  sarc-postgres-data:

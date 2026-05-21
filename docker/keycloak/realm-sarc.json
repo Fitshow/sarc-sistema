@@ -1,0 +1,76 @@
+{
+  "realm": "sarc",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "PROFESSOR",
+        "description": "Professor do SARC"
+      },
+      {
+        "name": "ADMIN",
+        "description": "Administrador do SARC"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sarc-web",
+      "name": "SARC Web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ]
+    },
+    {
+      "clientId": "sarc-api",
+      "name": "SARC API",
+      "enabled": true,
+      "bearerOnly": true
+    }
+  ],
+  "users": [
+    {
+      "username": "professor@sarc.local",
+      "email": "professor@sarc.local",
+      "firstName": "Professor",
+      "lastName": "Teste",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "PROFESSOR"
+      ]
+    },
+    {
+      "username": "admin@sarc.local",
+      "email": "admin@sarc.local",
+      "firstName": "Administrador",
+      "lastName": "SARC",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ADMIN"
+      ]
+    }
+  ]
+}

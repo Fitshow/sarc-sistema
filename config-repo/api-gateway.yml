@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: api-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8090/realms/sarc
+          jwk-set-uri: http://keycloak:8080/realms/sarc/protocol/openid-connect/certs
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+      routes:
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+        - id: resource-service
+          uri: lb://resource-service
+          predicates:
+            - Path=/api/resources/**
+        - id: allocation-service
+          uri: lb://allocation-service
+          predicates:
+            - Path=/api/allocations/**
+        - id: schedule-service
+          uri: lb://schedule-service
+          predicates:
+            - Path=/api/schedules/**
+        - id: public-schedule-alias
+          uri: lb://schedule-service
+          predicates:
+            - Path=/api/public/**
+          filters:
+            - 'RewritePath=/api/public/(?<segment>.*), /api/$\{segment}'
+
+server:
+  port: 8080

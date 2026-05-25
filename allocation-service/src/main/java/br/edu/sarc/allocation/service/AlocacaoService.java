@@ -47,7 +47,12 @@ public class AlocacaoService {
 
     @Transactional(readOnly = true)
     public List<AlocacaoPublicResponse> buscarPublicamente(LocalDate data, Long professorId, String disciplina, Long recursoId) {
-        return alocacaoRepository.buscarPublicamente(data, professorId, normalizarFiltro(disciplina), recursoId)
+        String disciplinaNormalizada = normalizarFiltro(disciplina);
+        List<Alocacao> alocacoes = disciplinaNormalizada == null
+                ? alocacaoRepository.buscarPublicamenteSemDisciplina(data, professorId, recursoId)
+                : alocacaoRepository.buscarPublicamenteComDisciplina(data, professorId, disciplinaNormalizada, recursoId);
+
+        return alocacoes
                 .stream()
                 .map(AlocacaoMapper::toPublicResponse)
                 .toList();

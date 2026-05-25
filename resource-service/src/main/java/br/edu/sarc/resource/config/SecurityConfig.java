@@ -28,6 +28,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/api/resources/public",
                                 "/api/resources/public/**",
                                 "/actuator/health",
                                 "/v3/api-docs/**",

@@ -31,7 +31,11 @@ public class ScheduleService {
 
     @Transactional(readOnly = true)
     public List<ScheduleResponse> listarGrade(LocalDate data, Long professorId, String disciplina, Long recursoId) {
-        return scheduleRepository.buscarGradePublica(data, professorId, normalizarFiltro(disciplina), recursoId);
+        String disciplinaNormalizada = normalizarFiltro(disciplina);
+        if (disciplinaNormalizada == null) {
+            return scheduleRepository.buscarGradePublicaSemDisciplina(data, professorId, recursoId);
+        }
+        return scheduleRepository.buscarGradePublicaComDisciplina(data, professorId, disciplinaNormalizada, recursoId);
     }
 
     @Transactional(readOnly = true)

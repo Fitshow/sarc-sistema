@@ -17,6 +17,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/api/schedules",
                                 "/api/schedules/**",
                                 "/actuator/health",
                                 "/v3/api-docs/**",

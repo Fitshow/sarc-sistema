@@ -33,8 +33,11 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .pathMatchers(HttpMethod.GET,
                                 "/api/public/**",
+                                "/api/schedules",
                                 "/api/schedules/**",
+                                "/api/resources/public",
                                 "/api/resources/public/**",
+                                "/api/allocations/public",
                                 "/api/allocations/public/**",
                                 "/api/users/professors",
                                 "/actuator/health",

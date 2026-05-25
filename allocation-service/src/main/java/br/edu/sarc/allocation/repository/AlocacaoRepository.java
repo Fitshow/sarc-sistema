@@ -19,11 +19,26 @@ public interface AlocacaoRepository extends JpaRepository<Alocacao, Long> {
             join a.recursos r
             where (:data is null or a.data = :data)
               and (:professorId is null or p.id = :professorId)
-              and (:disciplina is null or lower(a.disciplina) like lower(concat('%', :disciplina, '%')))
               and (:recursoId is null or r.id = :recursoId)
             order by a.data asc, a.horarioInicio asc
             """)
-    List<Alocacao> buscarPublicamente(
+    List<Alocacao> buscarPublicamenteSemDisciplina(
+            @Param("data") LocalDate data,
+            @Param("professorId") Long professorId,
+            @Param("recursoId") Long recursoId
+    );
+
+    @Query("""
+            select distinct a from Alocacao a
+            join a.professor p
+            join a.recursos r
+            where (:data is null or a.data = :data)
+              and (:professorId is null or p.id = :professorId)
+              and lower(a.disciplina) like lower(concat('%', :disciplina, '%'))
+              and (:recursoId is null or r.id = :recursoId)
+            order by a.data asc, a.horarioInicio asc
+            """)
+    List<Alocacao> buscarPublicamenteComDisciplina(
             @Param("data") LocalDate data,
             @Param("professorId") Long professorId,
             @Param("disciplina") String disciplina,

@@ -2,8 +2,8 @@
 
 INSERT INTO usuario (nome, email, senha_hash, perfil)
 VALUES
-    ('Professor Teste', 'professor@sarc.local', '$2a$10$placeholder.professor.sarc.local', 'PROFESSOR'),
-    ('Administrador SARC', 'admin@sarc.local', '$2a$10$placeholder.admin.sarc.local', 'ADMIN')
+    ('Professor Teste', 'professor@sarc.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lh32', 'PROFESSOR'),
+    ('Administrador SARC', 'admin@sarc.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lh32', 'ADMIN')
 ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO recurso (nome, tipo, numero_sala, localizacao, ativo)

@@ -4,35 +4,112 @@ Monorepo base para a revitalizacao do SARC, uma plataforma institucional para co
 
 ## Arquitetura
 
-- Microservicos com Java 21, Spring Boot e Spring Cloud
-- API Gateway com Spring Cloud Gateway
-- Eureka Discovery Server
-- Spring Cloud Config Server
-- Autenticacao e autorizacao com Keycloak e OpenID Connect
-- PostgreSQL por servico, a ser detalhado em etapa posterior
-- Observabilidade com OpenTelemetry
-- Front-end com React, Vite e TypeScript
-- Docker Compose para ambiente local
+```
+                        ┌─────────────┐
+          Browser/App   │  sarc-web   │  React + Vite + TypeScript
+                        └──────┬──────┘
+                               │ HTTP :3000 → :8080
+                        ┌──────▼──────┐
+                        │ api-gateway │  Spring Cloud Gateway + Keycloak JWT
+                        └──┬──┬──┬───┘
+               ┌───────────┘  │  └───────────┐
+     ┌─────────▼──┐  ┌────────▼───┐  ┌───────▼───────┐  ┌─────────────────┐
+     │user-service│  │resource-svc│  │allocation-svc │  │ schedule-service│
+     │  :8082     │  │  :8083     │  │  :8084        │  │  :8085          │
+     └─────────┬──┘  └────────┬───┘  └───────┬───────┘  └────────┬────────┘
+               └──────────────┴──────────────┴──────────────────┘
+                                       │
+                              ┌────────▼────────┐
+                              │   PostgreSQL     │  banco: sarc
+                              │   :5432          │
+                              └─────────────────┘
+
+     Infraestrutura transversal:
+     ┌──────────────────┐  ┌────────────────┐  ┌──────────────────────┐
+     │ discovery-server │  │ config-server  │  │  otel-collector      │
+     │ Eureka :8761     │  │ Spring :8888   │  │  OTLP :4317/:4318    │
+     └──────────────────┘  └────────────────┘  └──────────────────────┘
+
+     Autenticacao:
+     ┌──────────────────────────────────────┐
+     │ Keycloak :8090   Realm: sarc          │
+     │ Roles: PROFESSOR | ADMIN              │
+     └──────────────────────────────────────┘
+```
+
+## Schema do Banco
+
+```
+usuario
+  id (PK) | nome | email (UNIQUE) | senha_hash | perfil (PROFESSOR|ADMIN) | criado_em
+
+recurso
+  id (PK) | nome | tipo (SALA|LABORATORIO|EQUIPAMENTO) | numero_sala | localizacao | ativo
+
+alocacao
+  id (PK) | professor_id (FK usuario) | disciplina | data | horario_inicio | horario_fim | criado_em
+
+alocacao_recurso  (tabela de junção N:N)
+  alocacao_id (FK) | recurso_id (FK)
+```
 
 ## Modulos
 
-- `discovery-server`: servidor Eureka
-- `config-server`: servidor Spring Cloud Config
-- `api-gateway`: gateway de entrada da plataforma
-- `user-service`: servico de usuarios e perfis
-- `resource-service`: servico de salas, laboratorios e recursos
-- `allocation-service`: servico de alocacoes
-- `schedule-service`: servico de horarios e disponibilidade
-- `sarc-web`: aplicacao web React
-- `config-repo`: configuracoes externas dos servicos
-- `database`: scripts SQL do modelo relacional PostgreSQL
-- `docs`: documentacao do projeto
-- `docker`: arquivos de infraestrutura local
-- `scripts`: scripts auxiliares
+| Módulo | Descrição | Porta |
+|--------|-----------|-------|
+| `discovery-server` | Eureka Service Registry | 8761 |
+| `config-server` | Spring Cloud Config | 8888 |
+| `api-gateway` | Gateway de entrada com autenticação JWT | 8080 |
+| `user-service` | Gestão de professores e administradores | 8082 |
+| `resource-service` | Gestão de salas, labs e equipamentos | 8083 |
+| `allocation-service` | Criação e gerenciamento de alocações | 8084 |
+| `schedule-service` | Grade pública de horários (somente leitura) | 8085 |
+| `sarc-web` | Frontend React | 3000 |
+| `config-repo` | Configurações externas dos serviços | — |
+| `database` | Scripts SQL do schema relacional | — |
 
-## Status
+## Execucao Local com Docker
 
-Estrutura inicial criada com modelo relacional e infraestrutura Docker base. Regras de negocio e interface completa ainda serao implementadas em etapas posteriores.
+Copie o arquivo de exemplo de variáveis de ambiente:
+
+```bash
+cp .env.example .env
+```
+
+Suba todos os serviços:
+
+```bash
+docker compose up --build
+```
+
+Serviços disponíveis após inicialização:
+
+| Serviço | URL |
+|---------|-----|
+| Frontend | http://localhost:3000 |
+| API Gateway | http://localhost:8080 |
+| Swagger — user-service | http://localhost:8080/v3/api-docs |
+| Keycloak | http://localhost:8090 |
+| Eureka | http://localhost:8761 |
+| Config Server | http://localhost:8888 |
+
+### Credenciais de teste
+
+| Usuário | E-mail | Senha | Perfil |
+|---------|--------|-------|--------|
+| Professor Teste | `professor@sarc.local` | `123456` | PROFESSOR |
+| Administrador SARC | `admin@sarc.local` | `123456` | ADMIN |
+
+> As credenciais acima são apenas para desenvolvimento local. Em produção, defina variáveis de ambiente em `.env`.
+
+## Variáveis de Ambiente
+
+| Variável | Padrão (dev) | Descrição |
+|----------|-------------|-----------|
+| `DB_PASSWORD` | `sarc` | Senha do PostgreSQL |
+| `KEYCLOAK_ADMIN_PASSWORD` | `admin` | Senha do admin do Keycloak |
+| `CORS_ALLOWED_ORIGIN` | `http://localhost:3000` | Origem permitida no CORS |
+| `TRACING_PROBABILITY` | `1.0` | Sampling do OpenTelemetry (usar 0.1 em prod) |
 
 ## Processo de Desenvolvimento com IA (SDD)
 
@@ -56,7 +133,8 @@ Este projeto foi desenvolvido utilizando **Specification-Driven Development (SDD
 |---|---|---|---|
 | `user-service` | 3 | 8 | 11 |
 | `resource-service` | 4 | 7 | 11 |
-| `allocation-service` | 1 | 5 | 6 |
+| `allocation-service` | 1 | 6 | 7 |
+| `schedule-service` | 5 | — | 5 |
 
 Cobertura minima configurada: **70% de linhas** via JaCoCo (`mvn verify`).
 
@@ -64,37 +142,39 @@ Cobertura minima configurada: **70% de linhas** via JaCoCo (`mvn verify`).
 
 | Pipeline | Arquivo | Trigger | O que faz |
 |---|---|---|---|
-| CI — Testes | `.github/workflows/ci.yml` | Push/PR em `main` e `dev` | Compila e testa os 3 servicos com Java 21, publica relatorios JaCoCo |
-| Staging | `.github/workflows/staging.yml` | Push em `main` | Empacota os JARs e publica imagens Docker no GHCR com tag `:staging` |
+| CI — Testes | `.github/workflows/ci.yml` | Push/PR em `main` e `dev` | Compila e testa os 4 servicos, publica JaCoCo, roda OWASP Dependency Check |
+| Staging | `.github/workflows/staging.yml` | Push em `main` | Empacota JARs e publica imagens Docker no GHCR com tag `:staging` |
+| Produção | `.github/workflows/production.yml` | Tag `v*` | Roda testes, exige aprovação manual, publica `:latest` e `:vX.Y.Z` |
 
-## Execucao Local com Docker
+## Troubleshooting
 
-Na raiz do projeto, execute:
-
-```bash
-docker-compose up --build
-```
-
-Ou, usando o Docker Compose plugin:
+### Serviços não sobem / ficam em restart loop
 
 ```bash
-docker compose up --build
+# Ver logs de um serviço específico
+docker compose logs -f config-server
+
+# Aguardar o config-server estar saudável antes de subir os demais
+docker compose up config-server -d
+docker compose up
 ```
 
-Servicos principais:
+### Keycloak não inicializa
 
-- Front-end: http://localhost:3000
-- API Gateway: http://localhost:8080
-- Eureka: http://localhost:8761
-- Config Server: http://localhost:8888
-- Keycloak: http://localhost:8090
-- PostgreSQL: localhost:5432
+O Keycloak pode demorar 30-60s na primeira vez. Aguarde e recarregue.
 
-Keycloak:
+### Erro de conexão com PostgreSQL
 
-- Realm: `sarc`
-- Roles: `PROFESSOR`, `ADMIN`
-- Usuario professor: `professor@sarc.local` / `123456`
-- Usuario administrador: `admin@sarc.local` / `123456`
+Verifique se as variáveis de ambiente correspondem às do `docker-compose.yml`:
 
-SonarQube esta documentado como opcional no `docker-compose.yml` da raiz.
+```bash
+docker compose exec postgres psql -U sarc -d sarc -c "\dt"
+```
+
+### Token JWT inválido (401)
+
+Certifique-se de que o Realm `sarc` foi importado corretamente:
+
+```
+Keycloak → http://localhost:8090 → Admin → Realm: sarc → Users
+```

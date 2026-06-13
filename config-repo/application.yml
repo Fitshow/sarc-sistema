@@ -7,10 +7,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
   otlp:
     tracing:
       endpoint: http://otel-collector:4318/v1/traces
   tracing:
     sampling:
-      probability: 1.0
+      probability: ${TRACING_PROBABILITY:1.0}

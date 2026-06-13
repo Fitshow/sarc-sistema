@@ -128,6 +128,19 @@ class AlocacaoServiceTest {
         verify(usuarioRepository, never()).findByEmail("admin@sarc.local");
     }
 
+    @Test
+    void criacaoComProfessorIdNullDeveUsarProfessorDoToken() {
+        when(currentUserProvider.get()).thenReturn(new CurrentUser("professor@sarc.local", false, true));
+        when(usuarioRepository.findByEmail("professor@sarc.local")).thenReturn(Optional.of(professor));
+        when(recursoRepository.findByIdIn(List.of(10L))).thenReturn(List.of(laboratorio));
+        when(alocacaoRepository.existeConflito(eq(LocalDate.now().plusDays(1)), eq(LocalTime.of(8, 0)), eq(LocalTime.of(10, 0)), eq(List.of(10L)), eq(null))).thenReturn(false);
+        when(alocacaoRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = service.criar(request(null, List.of(10L), LocalTime.of(8, 0), LocalTime.of(10, 0)));
+
+        assertThat(response.professor()).isEqualTo("Professor Teste");
+    }
+
     private AlocacaoRequest request(Long professorId, List<Long> recursoIds, LocalTime inicio, LocalTime fim) {
         return new AlocacaoRequest(
                 professorId,

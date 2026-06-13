@@ -7,13 +7,21 @@ management:
   endpoints:
     web:
       exposure:
+        # health: necessário para Docker health checks e load balancer
+        # metrics e prometheus: restritos por role no SecurityConfig de cada serviço
         include: health,metrics,prometheus
   endpoint:
     health:
       show-details: never
+    # Restringe acesso a métricas internas — combinado com SecurityConfig
+    metrics:
+      access: read-only
+    prometheus:
+      access: read-only
   otlp:
     tracing:
       endpoint: http://otel-collector:4318/v1/traces
   tracing:
     sampling:
+      # 1.0 em dev/staging, 0.1 em produção (application-production.yml sobrescreve)
       probability: ${TRACING_PROBABILITY:1.0}

@@ -20,7 +20,11 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/schedules",
                                 "/api/schedules/**",
-                                "/actuator/health",
+                                "/actuator/health"
+                        ).permitAll()
+                        // Métricas internas protegidas — apenas ADMIN ou acesso interno (#17)
+                        .requestMatchers("/actuator/metrics", "/actuator/prometheus").hasRole("ADMIN")
+                        .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"

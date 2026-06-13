@@ -4,54 +4,92 @@ Monorepo base para a revitalizacao do SARC, uma plataforma institucional para co
 
 ## Arquitetura
 
-```
-                        ┌─────────────┐
-          Browser/App   │  sarc-web   │  React + Vite + TypeScript
-                        └──────┬──────┘
-                               │ HTTP :3000 → :8080
-                        ┌──────▼──────┐
-                        │ api-gateway │  Spring Cloud Gateway + Keycloak JWT
-                        └──┬──┬──┬───┘
-               ┌───────────┘  │  └───────────┐
-     ┌─────────▼──┐  ┌────────▼───┐  ┌───────▼───────┐  ┌─────────────────┐
-     │user-service│  │resource-svc│  │allocation-svc │  │ schedule-service│
-     │  :8082     │  │  :8083     │  │  :8084        │  │  :8085          │
-     └─────────┬──┘  └────────┬───┘  └───────┬───────┘  └────────┬────────┘
-               └──────────────┴──────────────┴──────────────────┘
-                                       │
-                              ┌────────▼────────┐
-                              │   PostgreSQL     │  banco: sarc
-                              │   :5432          │
-                              └─────────────────┘
+```mermaid
+graph TD
+    Browser(["Browser / sarc-web\n:3000"]) --> GW
 
-     Infraestrutura transversal:
-     ┌──────────────────┐  ┌────────────────┐  ┌──────────────────────┐
-     │ discovery-server │  │ config-server  │  │  otel-collector      │
-     │ Eureka :8761     │  │ Spring :8888   │  │  OTLP :4317/:4318    │
-     └──────────────────┘  └────────────────┘  └──────────────────────┘
+    GW["api-gateway\n:8080\nSpring Cloud Gateway + JWT"]
 
-     Autenticacao:
-     ┌──────────────────────────────────────┐
-     │ Keycloak :8090   Realm: sarc          │
-     │ Roles: PROFESSOR | ADMIN              │
-     └──────────────────────────────────────┘
+    GW --> US["user-service\n:8082"]
+    GW --> RS["resource-service\n:8083"]
+    GW --> AS["allocation-service\n:8084"]
+    GW --> SS["schedule-service\n:8085"]
+
+    US --> PG[("PostgreSQL :5432\nschema: sarc_users")]
+    RS --> PG2[("PostgreSQL :5432\nschema: sarc_resources")]
+    AS --> PG3[("PostgreSQL :5432\nschema: sarc_allocations")]
+    SS --> PG4[("PostgreSQL :5432\nschema: sarc_schedules")]
+
+    subgraph Infra["Infraestrutura Transversal"]
+        EUR["discovery-server\nEureka :8761"]
+        CFG["config-server\nSpring :8888"]
+        OTEL["otel-collector\nOTLP :4318"]
+        KC["Keycloak :8090\nRealm: sarc\nRoles: PROFESSOR, ADMIN"]
+    end
+
+    US & RS & AS & SS --> EUR
+    US & RS & AS & SS --> CFG
+    US & RS & AS & SS --> OTEL
+    GW --> KC
 ```
 
-## Schema do Banco
 
+## Schemas do Banco
+
+Cada microsserviço possui seu **próprio schema PostgreSQL**, eliminando acoplamento direto de banco entre serviços.
+
+| Schema | Serviço | Tabelas |
+|--------|---------|----------|
+| `sarc_users` | user-service | `usuario` |
+| `sarc_resources` | resource-service | `recurso` |
+| `sarc_allocations` | allocation-service | `alocacao`, `alocacao_recurso` |
+| `sarc_schedules` | schedule-service | views somente-leitura (`grade_publica`) |
+
+### Diagrama de Entidades
+
+```mermaid
+erDiagram
+    USUARIO {
+        int id PK
+        string nome
+        string email
+        string senha_hash
+        string perfil
+        timestamp criado_em
+    }
+
+    RECURSO {
+        int id PK
+        string nome
+        string tipo
+        string numero_sala
+        string localizacao
+        boolean ativo
+        timestamp criado_em
+    }
+
+    ALOCACAO {
+        int id PK
+        int professor_id
+        string disciplina
+        date data
+        time horario_inicio
+        time horario_fim
+        timestamp criado_em
+    }
+
+    ALOCACAO_RECURSO {
+        int alocacao_id FK
+        int recurso_id
+    }
+
+    ALOCACAO ||--o{ ALOCACAO_RECURSO : "possui"
+    ALOCACAO_RECURSO }o--|| RECURSO : "referencia logica"
+    ALOCACAO }o--|| USUARIO : "referencia logica"
 ```
-usuario
-  id (PK) | nome | email (UNIQUE) | senha_hash | perfil (PROFESSOR|ADMIN) | criado_em
 
-recurso
-  id (PK) | nome | tipo (SALA|LABORATORIO|EQUIPAMENTO) | numero_sala | localizacao | ativo
-
-alocacao
-  id (PK) | professor_id (FK usuario) | disciplina | data | horario_inicio | horario_fim | criado_em
-
-alocacao_recurso  (tabela de junção N:N)
-  alocacao_id (FK) | recurso_id (FK)
-```
+> **Nota:** As referências entre schemas (`professor_id`, `recurso_id`) são **lógicas** — sem FK cross-schema.
+> A integridade é garantida pela lógica de negócio do `allocation-service`.
 
 ## Modulos
 
@@ -107,7 +145,12 @@ Serviços disponíveis após inicialização:
 | Variável | Padrão (dev) | Descrição |
 |----------|-------------|-----------|
 | `DB_PASSWORD` | `sarc` | Senha do PostgreSQL |
+| `DB_HOST` | `postgres` | Host do PostgreSQL |
+| `DB_PORT` | `5432` | Porta do PostgreSQL |
+| `DB_NAME` | `sarc` | Nome do banco |
 | `KEYCLOAK_ADMIN_PASSWORD` | `admin` | Senha do admin do Keycloak |
+| `KEYCLOAK_INTERNAL_URL` | `http://keycloak:8080` | URL interna do Keycloak (dentro do Docker) |
+| `KEYCLOAK_EXTERNAL_URL` | `http://localhost:8090` | URL externa do Keycloak (acesso do browser) |
 | `CORS_ALLOWED_ORIGIN` | `http://localhost:3000` | Origem permitida no CORS |
 | `TRACING_PROBABILITY` | `1.0` | Sampling do OpenTelemetry (usar 0.1 em prod) |
 
@@ -129,14 +172,14 @@ Este projeto foi desenvolvido utilizando **Specification-Driven Development (SDD
 
 ### Cobertura de testes
 
-| Servico | Testes Controller (MockMvc) | Testes Service (Mockito) | Cenarios totais |
-|---|---|---|---|
-| `user-service` | 3 | 8 | 11 |
-| `resource-service` | 4 | 7 | 11 |
-| `allocation-service` | 1 | 6 | 7 |
-| `schedule-service` | 5 | — | 5 |
+| Servico | Controller (MockMvc) | Service (Mockito) | Repository (@DataJpaTest) | Total |
+|---|---|---|---|---|
+| `user-service` | 3 | 8 | 5 | 16 |
+| `resource-service` | 4 | 7 | 5 | 16 |
+| `allocation-service` | 1 | 6 | 6 | 13 |
+| `schedule-service` | 5 | — | — | 5 |
 
-Cobertura minima configurada: **70% de linhas** via JaCoCo (`mvn verify`).
+Cobertura mínima configurada: **70% de linhas** via JaCoCo (`mvn verify`).
 
 ## Pipelines CI/CD
 
@@ -168,7 +211,10 @@ O Keycloak pode demorar 30-60s na primeira vez. Aguarde e recarregue.
 Verifique se as variáveis de ambiente correspondem às do `docker-compose.yml`:
 
 ```bash
-docker compose exec postgres psql -U sarc -d sarc -c "\dt"
+# Verificar tabelas criadas pelo Flyway em cada schema
+docker compose exec postgres psql -U sarc -d sarc -c "\dn"
+docker compose exec postgres psql -U sarc -d sarc -c "SET search_path TO sarc_users; \dt"
+docker compose exec postgres psql -U sarc -d sarc -c "SET search_path TO sarc_allocations; \dt"
 ```
 
 ### Token JWT inválido (401)

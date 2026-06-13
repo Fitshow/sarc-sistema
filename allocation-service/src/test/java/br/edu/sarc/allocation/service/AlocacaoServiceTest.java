@@ -30,6 +30,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -165,15 +167,31 @@ class AlocacaoServiceTest {
         return alocacao;
     }
 
+    /**
+     * Cria um mock de Usuario (@Immutable — sem construtor público).
+     * lenient() evita UnnecessaryStubbingException quando nem todos os getters
+     * são usados em cada teste individual.
+     */
     private Usuario usuario(Long id, String nome, String email, PerfilUsuario perfil) {
-        Usuario usuario = new Usuario(nome, email, perfil);
-        ReflectionTestUtils.setField(usuario, "id", id);
+        Usuario usuario = mock(Usuario.class);
+        lenient().when(usuario.getId()).thenReturn(id);
+        lenient().when(usuario.getNome()).thenReturn(nome);
+        lenient().when(usuario.getEmail()).thenReturn(email);
+        lenient().when(usuario.getPerfil()).thenReturn(perfil);
         return usuario;
     }
 
+    /**
+     * Cria um mock de Recurso (@Immutable — sem construtor público).
+     * lenient() evita UnnecessaryStubbingException quando nem todos os getters
+     * são usados em cada teste individual.
+     */
     private Recurso recurso(Long id, String nome, TipoRecurso tipo, boolean ativo) {
-        Recurso recurso = new Recurso(nome, tipo, "Predio 32", ativo);
-        ReflectionTestUtils.setField(recurso, "id", id);
+        Recurso recurso = mock(Recurso.class);
+        lenient().when(recurso.getId()).thenReturn(id);
+        lenient().when(recurso.getNome()).thenReturn(nome);
+        lenient().when(recurso.getTipo()).thenReturn(tipo);
+        lenient().when(recurso.isAtivo()).thenReturn(ativo);
         return recurso;
     }
 }

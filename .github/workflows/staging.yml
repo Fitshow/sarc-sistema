@@ -13,17 +13,6 @@ jobs:
       - name: Checkout do repositório
         uses: actions/checkout@v4
 
-      - name: Configurar Java 21 (LTS)
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Empacotar serviços (sem testes — já validados pelo CI)
-        run: mvn -pl user-service,resource-service,allocation-service package -DskipTests -B
-        working-directory: ${{ github.workspace }}
-
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -38,10 +27,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # IMPORTANTE: context deve ser '.' (raiz do repositório) para que o
+      # pom.xml pai esteja disponível durante o 'mvn -pl <módulo> -am package'
       - name: Build e push — user-service
         uses: docker/build-push-action@v5
         with:
-          context: ./user-service
+          context: .
+          file: ./user-service/Dockerfile
           push: true
           tags: ghcr.io/${{ steps.owner.outputs.value }}/sarc-user-service:staging
           cache-from: type=gha
@@ -50,7 +42,8 @@ jobs:
       - name: Build e push — resource-service
         uses: docker/build-push-action@v5
         with:
-          context: ./resource-service
+          context: .
+          file: ./resource-service/Dockerfile
           push: true
           tags: ghcr.io/${{ steps.owner.outputs.value }}/sarc-resource-service:staging
           cache-from: type=gha
@@ -59,9 +52,20 @@ jobs:
       - name: Build e push — allocation-service
         uses: docker/build-push-action@v5
         with:
-          context: ./allocation-service
+          context: .
+          file: ./allocation-service/Dockerfile
           push: true
           tags: ghcr.io/${{ steps.owner.outputs.value }}/sarc-allocation-service:staging
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build e push — schedule-service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./schedule-service/Dockerfile
+          push: true
+          tags: ghcr.io/${{ steps.owner.outputs.value }}/sarc-schedule-service:staging
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -74,3 +78,4 @@ jobs:
           echo "| user-service | \`ghcr.io/${{ steps.owner.outputs.value }}/sarc-user-service:staging\` |" >> $GITHUB_STEP_SUMMARY
           echo "| resource-service | \`ghcr.io/${{ steps.owner.outputs.value }}/sarc-resource-service:staging\` |" >> $GITHUB_STEP_SUMMARY
           echo "| allocation-service | \`ghcr.io/${{ steps.owner.outputs.value }}/sarc-allocation-service:staging\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| schedule-service | \`ghcr.io/${{ steps.owner.outputs.value }}/sarc-schedule-service:staging\` |" >> $GITHUB_STEP_SUMMARY
